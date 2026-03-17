@@ -1,11 +1,11 @@
-import {
-  signInWithPhoneNumber,
-  ApplicationVerifier,
-  RecaptchaVerifier
-} from 'firebase/auth';
+import { signInWithPhoneNumber } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { auth } from '@/lib/firebase';
+import { createUserIfNew } from '@/lib/db';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView,
   Platform, StatusBar, StyleSheet, Text,
@@ -13,46 +13,75 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Required for expo-auth-session
+WebBrowser.maybeCompleteAuthSession();
+
 const PRIMARY        = '#1D9E75';
 const TEXT_PRIMARY   = '#1A1A1A';
 const TEXT_SECONDARY = '#6B7280';
 
-// Store confirmation globally so OTP screen can access it
 export let confirmationResult: any = null;
 
 export default function PhoneScreen() {
-  const [phone,   setPhone]   = useState('');
-  const [loading, setLoading] = useState(false);
+  const [phone,          setPhone]          = useState('');
+  const [loading,        setLoading]        = useState(false);
+  const [googleLoading,  setGoogleLoading]  = useState(false);
 
+  // ── Google Auth Setup ──
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '730256058647-9ojvahtri6ldkbaaretrvjbkotktqjci.apps.googleusercontent.com',
+    // Get this from Firebase Console → Project Settings → Web app → OAuth client ID
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      handleGoogleResponse(response);
+    }
+  }, [response]);
+
+  const handleGoogleResponse = async (resp: any) => {
+    setGoogleLoading(true);
+    try {
+      const { id_token } = resp.params;
+      const credential   = GoogleAuthProvider.credential(id_token);
+      const result       = await signInWithCredential(auth, credential);
+      const user         = result.user;
+
+      await createUserIfNew(user.phoneNumber || user.email || '');
+
+      const isNew = result._tokenResponse?.isNewUser ?? false;
+      if (isNew) {
+        router.replace({
+          pathname: '/(auth)/setup-profile',
+          params: { phone: user.email || '' },
+        });
+      } else {
+        router.replace('/(tabs)/home');
+      }
+    } catch (error: any) {
+      Alert.alert('Google Sign-In failed', error.message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  // ── Phone OTP ──
   const handleSendOTP = async () => {
     const digits = phone.replace(/\s/g, '');
     if (digits.length < 9) return;
     setLoading(true);
-
-    console.log('Sending OTP to:', '+233' + digits);
-
     try {
-      // For Expo Go / web SDK — use a dummy recaptcha verifier
-      const appVerifier = {
-        type: 'recaptcha',
-        verify: () => Promise.resolve('fake-token'),
-      } as unknown as ApplicationVerifier;
-
-      confirmationResult = await signInWithPhoneNumber(
-        auth,
-        '+233' + digits,
-        appVerifier
-      );
-
+      // @ts-ignore
+      confirmationResult = await signInWithPhoneNumber(auth, '+233' + digits, null);
       setLoading(false);
-      router.push({
-        pathname: '/(auth)/otp',
-        params: { phone: digits },
-      });
+      router.push({ pathname: '/(auth)/otp', params: { phone: digits } });
     } catch (error: any) {
       setLoading(false);
-      console.error('OTP Error:', error);
-      Alert.alert('Error sending OTP', error.message);
+      if (error.code === 'auth/too-many-requests') {
+        Alert.alert('Too many attempts', 'Please wait a few minutes and try again.');
+      } else {
+        Alert.alert('Error sending OTP', error.message);
+      }
     }
   };
 
@@ -116,11 +145,23 @@ export default function PhoneScreen() {
             <View style={s.orLine} />
           </View>
 
-          <TouchableOpacity style={s.googleBtn} activeOpacity={0.8}>
-            <View style={s.googleIcon}>
-              <Text style={s.googleG}>G</Text>
-            </View>
-            <Text style={s.googleText}>Continue with Google</Text>
+          {/* ── Google Button ── */}
+          <TouchableOpacity
+            style={[s.googleBtn, (!request || googleLoading) && s.btnDisabled]}
+            onPress={() => promptAsync()}
+            disabled={!request || googleLoading}
+            activeOpacity={0.8}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#1A1A1A" size="small" />
+            ) : (
+              <>
+                <View style={s.googleIconBox}>
+                  <Text style={s.googleG}>G</Text>
+                </View>
+                <Text style={s.googleText}>Continue with Google</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -164,10 +205,12 @@ const s = StyleSheet.create({
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, height: 54, gap: 10,
+    backgroundColor: '#fff',
   },
-  googleIcon: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff',
-    borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
+  googleIconBox: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    alignItems: 'center', justifyContent: 'center',
   },
   googleG:    { fontSize: 13, fontWeight: '800', color: '#4285F4' },
   googleText: { fontSize: 15, fontWeight: '600', color: TEXT_PRIMARY },
