@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { saveTransaction } from '@/lib/db';
+
 import React, { useRef, useState } from "react";
 import {
     Alert,
@@ -119,7 +120,8 @@ export default function AddTransactionScreen() {
   const [note, setNote] = useState("");
   const [amount, setAmount] = useState("0.00");
   const [isEditing, setIsEditing] = useState(false);
-
+// Add this with the other useState declarat  ions at the top:
+const [loading, setLoading] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // ── Amount input: tap → full keyboard entry

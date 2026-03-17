@@ -1,16 +1,19 @@
+import { createUserIfNew } from "@/lib/db";
+import { auth } from "@/lib/firebase";
 import { router, useLocalSearchParams } from "expo-router";
+import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,9 +23,9 @@ const TEXT_SECONDARY = "#6B7280";
 const OTP_LENGTH = 6;
 
 export default function OTPScreen() {
-  const { phone, confirmation } = useLocalSearchParams<{
+  const { phone, verificationId } = useLocalSearchParams<{
     phone: string;
-    confirmation: string;
+    verificationId: string;
   }>();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
@@ -30,9 +33,6 @@ export default function OTPScreen() {
   const [timer, setTimer] = useState(45);
   const [canResend, setCanResend] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
-
-  // Parse confirmation object
-  const confirmationObj = confirmation ? JSON.parse(confirmation) : null;
 
   useEffect(() => {
     if (timer <= 0) {
@@ -62,10 +62,12 @@ export default function OTPScreen() {
 
   const handleVerify = async () => {
     const code = otp.join("");
-    if (code.length < OTP_LENGTH || !confirmationObj) return;
+    if (code.length < OTP_LENGTH) return;
     setLoading(true);
     try {
-      await confirmationObj.confirm(code);
+      const credential = PhoneAuthProvider.credential(verificationId, code);
+      await signInWithCredential(auth, credential);
+      await createUserIfNew("+233" + phone);
       setLoading(false);
       router.replace("/(tabs)/home");
     } catch (error: any) {
@@ -82,7 +84,7 @@ export default function OTPScreen() {
     setTimer(45);
     setCanResend(false);
     inputs.current[0]?.focus();
-    router.back(); // go back to phone screen to resend
+    router.back();
   };
 
   const formatPhone = (p: string) =>
@@ -117,10 +119,10 @@ export default function OTPScreen() {
                 }}
                 style={[
                   s.box,
-                  digit && s.boxFilled,
-                  otp.slice(0, i).every((d) => d !== "") &&
-                    !digit &&
-                    s.boxActive,
+                  digit ? s.boxFilled : null,
+                  otp.slice(0, i).every((d) => d !== "") && !digit
+                    ? s.boxActive
+                    : null,
                 ]}
                 value={digit}
                 onChangeText={(v) => handleChange(v, i)}

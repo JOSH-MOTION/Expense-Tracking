@@ -1,17 +1,27 @@
-import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
+import {
+  collection, addDoc, getDocs,
+  query, orderBy, limit,
+  serverTimestamp, doc, getDoc, setDoc,
+} from 'firebase/firestore';
+import { db, auth } from './firebase';
 
-// Get current user ID
-export const uid = () => auth().currentUser?.uid;
+const uid = () => auth.currentUser?.uid;
 
-// Collections scoped to user
-export const txCollection = () =>
-  firestore().collection('users').doc(uid()).collection('transactions');
+export const userDocRef = () => doc(db, 'users', uid()!);
+export const txColRef  = () => collection(db, 'users', uid()!, 'transactions');
 
-export const userDoc = () =>
-  firestore().collection('users').doc(uid());
+export async function createUserIfNew(phone: string) {
+  const ref  = userDocRef();
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      phone,
+      displayName: '',
+      createdAt: serverTimestamp(),
+    });
+  }
+}
 
-// Save a transaction
 export async function saveTransaction(data: {
   name: string;
   amount: number;
@@ -21,18 +31,15 @@ export async function saveTransaction(data: {
   category: string;
   note?: string;
 }) {
-  return txCollection().add({
+  return addDoc(txColRef(), {
     ...data,
-    createdAt: firestore.FieldValue.serverTimestamp(),
+    createdAt: serverTimestamp(),
     source: 'manual',
   });
 }
 
-// Fetch recent transactions
-export async function getRecentTransactions(limit = 10) {
-  const snap = await txCollection()
-    .orderBy('createdAt', 'desc')
-    .limit(limit)
-    .get();
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+export async function getRecentTransactions(limitCount = 20) {
+  const q    = query(txColRef(), orderBy('createdAt', 'desc'), limit(limitCount));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
 }

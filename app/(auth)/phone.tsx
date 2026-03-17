@@ -1,6 +1,8 @@
-import auth from "@react-native-firebase/auth";
+import app, { auth } from "@/lib/firebase";
+import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { PhoneAuthProvider } from "firebase/auth";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,17 +24,22 @@ const TEXT_SECONDARY = "#6B7280";
 export default function PhoneScreen() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const recaptchaVerifier = useRef<any>(null);
 
   const handleSendOTP = async () => {
     const digits = phone.replace(/\s/g, "");
     if (digits.length < 9) return;
     setLoading(true);
     try {
-      const confirmation = await auth().signInWithPhoneNumber("+233" + digits);
+      const provider = new PhoneAuthProvider(auth);
+      const verificationId = await provider.verifyPhoneNumber(
+        "+233" + digits,
+        recaptchaVerifier.current,
+      );
       setLoading(false);
       router.push({
         pathname: "/(auth)/otp",
-        params: { phone: digits, confirmation: JSON.stringify(confirmation) },
+        params: { phone: digits, verificationId },
       });
     } catch (error: any) {
       setLoading(false);
@@ -46,7 +53,6 @@ export default function PhoneScreen() {
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Recaptcha — invisible but required */}
       <FirebaseRecaptchaVerifierModal
         ref={recaptchaVerifier}
         firebaseConfig={app.options}

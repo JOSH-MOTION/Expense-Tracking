@@ -1,7 +1,7 @@
+import { auth } from "@/lib/firebase";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { signOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
   Alert,
@@ -11,7 +11,7 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -86,19 +86,19 @@ function Divider() {
 export default function SettingsScreen() {
   const [aiMoMoEnabled, setAiMoMoEnabled] = useState(true);
 
-const handleLogout = () => {
-  Alert.alert('Log out', 'Are you sure?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Log out',
-      style: 'destructive',
-      onPress: async () => {
-        await signOut(auth);
-        router.replace('/(auth)/phone');
+  const handleLogout = () => {
+    Alert.alert("Log out", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut(auth);
+          router.replace("/(auth)/phone");
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -183,7 +183,7 @@ const handleLogout = () => {
             iconBg={GOLD}
             title="Security Settings"
             subtitle="PIN, Biometrics"
-           onPress={() => router.push('/security-settings')}
+            onPress={() => router.push("/security-settings")}
           />
           <Divider />
           <SettingRow
