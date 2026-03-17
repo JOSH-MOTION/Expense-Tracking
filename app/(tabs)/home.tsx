@@ -68,7 +68,7 @@ function formatTxTime(date: Date) {
 }
 
 export default function HomeScreen() {
-  const { profile, user } = useAuth();
+const { profile, user } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [summary,      setSummary]      = useState({ income: 0, expense: 0, balance: 0 });
   const [loading,      setLoading]      = useState(true);
@@ -88,13 +88,13 @@ export default function HomeScreen() {
   }, []);
 
   // ← useEffect is INSIDE the component
-  useEffect(() => {
-    if (user) {
-      loadData();
-    } else {
-      setLoading(false);
-    }
-  }, [user, loadData]);
+ useEffect(() => {
+  if (user) {
+    loadData();
+  } else {
+    setLoading(false);
+  }
+}, [user, loadData]);
 
   const displayName = profile?.displayName || profile?.phone || 'there';
   const firstName   = displayName.split(' ')[0];
