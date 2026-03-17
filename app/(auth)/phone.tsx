@@ -1,11 +1,7 @@
-import {
-  signInWithPhoneNumber,
-  ApplicationVerifier,
-  RecaptchaVerifier
-} from 'firebase/auth';
+import { signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView,
   Platform, StatusBar, StyleSheet, Text,
@@ -17,7 +13,6 @@ const PRIMARY        = '#1D9E75';
 const TEXT_PRIMARY   = '#1A1A1A';
 const TEXT_SECONDARY = '#6B7280';
 
-// Store confirmation globally so OTP screen can access it
 export let confirmationResult: any = null;
 
 export default function PhoneScreen() {
@@ -29,30 +24,25 @@ export default function PhoneScreen() {
     if (digits.length < 9) return;
     setLoading(true);
 
-    console.log('Sending OTP to:', '+233' + digits);
-
     try {
-      // For Expo Go / web SDK — use a dummy recaptcha verifier
-      const appVerifier = {
-        type: 'recaptcha',
-        verify: () => Promise.resolve('fake-token'),
-      } as unknown as ApplicationVerifier;
-
-      confirmationResult = await signInWithPhoneNumber(
-        auth,
-        '+233' + digits,
-        appVerifier
-      );
-
+      // @ts-ignore — pass null for React Native, Firebase handles it
+      confirmationResult = await signInWithPhoneNumber(auth, '+233' + digits, null);
       setLoading(false);
-      router.push({
-        pathname: '/(auth)/otp',
-        params: { phone: digits },
-      });
+      router.push({ pathname: '/(auth)/otp', params: { phone: digits } });
     } catch (error: any) {
       setLoading(false);
-      console.error('OTP Error:', error);
-      Alert.alert('Error sending OTP', error.message);
+      console.error('OTP Error:', error.code, error.message);
+
+      // Show user-friendly messages for common errors
+      if (error.code === 'auth/invalid-phone-number') {
+        Alert.alert('Invalid number', 'Please enter a valid Ghana phone number.');
+      } else if (error.code === 'auth/too-many-requests') {
+        Alert.alert('Too many attempts', 'Please wait a few minutes and try again.');
+      } else if (error.code === 'auth/captcha-check-failed') {
+        Alert.alert('Verification failed', 'Please try again.');
+      } else {
+        Alert.alert('Error', error.message);
+      }
     }
   };
 
@@ -172,3 +162,11 @@ const s = StyleSheet.create({
   googleG:    { fontSize: 13, fontWeight: '800', color: '#4285F4' },
   googleText: { fontSize: 15, fontWeight: '600', color: TEXT_PRIMARY },
 });
+```
+
+If `null` still fails, the most reliable approach for Expo Go is to **add test numbers in Firebase Console** and bypass reCAPTCHA completely during development:
+
+**Firebase Console → Authentication → Sign-in method → Phone → Phone numbers for testing → Add number:**
+```
+Phone number: +233000000001
+Verification code: 123456

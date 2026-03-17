@@ -16,13 +16,6 @@ const CARD_BG        = '#FFFFFF';
 const TEXT_PRIMARY   = '#1A1A1A';
 const TEXT_SECONDARY = '#6B7280';
 
-// In home.tsx — wrap loadData in a user check
-useEffect(() => {
-  if (user) {  // ← only load when user exists
-    loadData();
-  }
-}, [loadData, user]);  // ← add user as dependency
-
 function formatAmount(amount: number, signed = true) {
   const abs = Math.abs(amount).toLocaleString('en-GH', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -39,8 +32,9 @@ function getGreeting() {
 }
 
 function getInitials(name: string) {
+  if (!name?.trim()) return '?';
   return name.trim().split(' ')
-    .map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+    .map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
 function getCategoryIcon(category: string) {
@@ -62,18 +56,19 @@ function getCategoryBg(category: string) {
 }
 
 function formatTxTime(date: Date) {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
   const now   = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const txDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diff  = today.getTime() - txDay.getTime();
   const time  = date.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' });
-  if (diff === 0) return `Today, ${time}`;
-  if (diff === 86400000) return `Yesterday, ${time}`;
+  if (diff === 0)         return `Today, ${time}`;
+  if (diff === 86400000)  return `Yesterday, ${time}`;
   return date.toLocaleDateString('en-GH', { day: 'numeric', month: 'short' });
 }
 
 export default function HomeScreen() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [summary,      setSummary]      = useState({ income: 0, expense: 0, balance: 0 });
   const [loading,      setLoading]      = useState(true);
@@ -92,7 +87,14 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // ← useEffect is INSIDE the component
+  useEffect(() => {
+    if (user) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, loadData]);
 
   const displayName = profile?.displayName || profile?.phone || 'there';
   const firstName   = displayName.split(' ')[0];
@@ -163,7 +165,6 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.importBanner}
             activeOpacity={0.85}
-            onPress={() => router.push('/momo-import')}
           >
             <View style={styles.importIconWrapper}>
               <Text style={{ fontSize: 18 }}>✦</Text>
@@ -245,17 +246,17 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#C0DD97', alignItems: 'center', justifyContent: 'center',
   },
-  avatarText:   { fontSize: 15, fontWeight: '700', color: '#27500A' },
-  balanceCard:  { backgroundColor: PRIMARY, borderRadius: 20, padding: 20, marginBottom: 14 },
-  balanceLabel: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginBottom: 6 },
-  balanceAmount:{ fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  balanceDivider: { height: 0.5, backgroundColor: 'rgba(255,255,255,0.25)', marginVertical: 16 },
-  balanceRow:   { flexDirection: 'row', justifyContent: 'space-between' },
-  balanceStat:  { flex: 1 },
-  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
-  statDot:      { width: 7, height: 7, borderRadius: 4 },
-  statLabel:    { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
-  statAmount:   { fontSize: 16, fontWeight: '700', color: '#fff' },
+  avatarText:    { fontSize: 15, fontWeight: '700', color: '#27500A' },
+  balanceCard:   { backgroundColor: PRIMARY, borderRadius: 20, padding: 20, marginBottom: 14 },
+  balanceLabel:  { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginBottom: 6 },
+  balanceAmount: { fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  balanceDivider:{ height: 0.5, backgroundColor: 'rgba(255,255,255,0.25)', marginVertical: 16 },
+  balanceRow:    { flexDirection: 'row', justifyContent: 'space-between' },
+  balanceStat:   { flex: 1 },
+  statLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  statDot:       { width: 7, height: 7, borderRadius: 4 },
+  statLabel:     { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+  statAmount:    { fontSize: 16, fontWeight: '700', color: '#fff' },
   importBanner: {
     backgroundColor: GOLD, borderRadius: 14, padding: 14,
     flexDirection: 'row', alignItems: 'center', marginBottom: 20,
@@ -266,25 +267,25 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
   importTextWrapper: { flex: 1 },
-  importTitle:  { fontSize: 14, fontWeight: '700', color: '#4A2800' },
-  importSub:    { fontSize: 12, color: '#7A4F00', marginTop: 2 },
-  importChevron:{ fontSize: 22, color: '#7A4F00' },
-  sectionHeader:{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: TEXT_PRIMARY },
-  seeAll:       { fontSize: 14, color: PRIMARY, fontWeight: '500' },
-  emptyCard:    { backgroundColor: CARD_BG, borderRadius: 16, padding: 32, alignItems: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
-  emptyIcon:    { fontSize: 32, marginBottom: 12 },
-  emptyTitle:   { fontSize: 16, fontWeight: '600', color: TEXT_PRIMARY, marginBottom: 6 },
-  emptySub:     { fontSize: 13, color: TEXT_SECONDARY, textAlign: 'center' },
+  importTitle:   { fontSize: 14, fontWeight: '700', color: '#4A2800' },
+  importSub:     { fontSize: 12, color: '#7A4F00', marginTop: 2 },
+  importChevron: { fontSize: 22, color: '#7A4F00' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle:  { fontSize: 17, fontWeight: '700', color: TEXT_PRIMARY },
+  seeAll:        { fontSize: 14, color: PRIMARY, fontWeight: '500' },
+  emptyCard:     { backgroundColor: CARD_BG, borderRadius: 16, padding: 32, alignItems: 'center', borderWidth: 0.5, borderColor: '#E5E7EB' },
+  emptyIcon:     { fontSize: 32, marginBottom: 12 },
+  emptyTitle:    { fontSize: 16, fontWeight: '600', color: TEXT_PRIMARY, marginBottom: 6 },
+  emptySub:      { fontSize: 13, color: TEXT_SECONDARY, textAlign: 'center' },
   transactionsList: { backgroundColor: CARD_BG, borderRadius: 16, overflow: 'hidden', borderWidth: 0.5, borderColor: '#E5E7EB' },
-  txRow:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  txRowBorder:  { borderBottomWidth: 0.5, borderBottomColor: '#F0F0F0' },
-  txIcon:       { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  txInfo:       { flex: 1 },
-  txName:       { fontSize: 15, fontWeight: '600', color: TEXT_PRIMARY, marginBottom: 5 },
-  txMeta:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  txBadge:      { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  txBadgeText:  { fontSize: 11, fontWeight: '600' },
-  txTime:       { fontSize: 12, color: TEXT_SECONDARY },
-  txAmount:     { fontSize: 15, fontWeight: '700' },
+  txRow:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  txRowBorder:   { borderBottomWidth: 0.5, borderBottomColor: '#F0F0F0' },
+  txIcon:        { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  txInfo:        { flex: 1 },
+  txName:        { fontSize: 15, fontWeight: '600', color: TEXT_PRIMARY, marginBottom: 5 },
+  txMeta:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  txBadge:       { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  txBadgeText:   { fontSize: 11, fontWeight: '600' },
+  txTime:        { fontSize: 12, color: TEXT_SECONDARY },
+  txAmount:      { fontSize: 15, fontWeight: '700' },
 });
