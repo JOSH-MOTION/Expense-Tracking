@@ -17,6 +17,8 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }}  />
          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+         <Stack.Screen name="security-settings" options={{ headerShown: false, presentation: 'card' }}
+/>
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
