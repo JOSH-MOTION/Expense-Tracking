@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { saveTransaction } from '@/lib/db';
 import React, { useRef, useState } from "react";
 import {
     Alert,
@@ -143,33 +144,34 @@ export default function AddTransactionScreen() {
   };
 
   // ── Save
-  const handleSave = () => {
-    const num = parseFloat(amount);
-    if (!num || num === 0) {
-      Alert.alert(
-        "Enter an amount",
-        "Please enter a transaction amount before saving.",
-      );
-      return;
-    }
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.96,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // TODO: save to Firestore
-      Alert.alert("Saved!", `${txType} of ₵${amount} recorded.`, [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+ 
+
+const handleSave = async () => {
+  const num = parseFloat(amount);
+  if (!num || num === 0) {
+    Alert.alert('Enter an amount', 'Please enter a transaction amount.');
+    return;
+  }
+  setLoading(true);
+  try {
+    await saveTransaction({
+      name: note || category,
+      amount: num,
+      type: txType === 'Expense' ? 'expense' : 'income',
+      paymentType: accountType,
+      network: accountType === 'MoMo' ? network : undefined,
+      category,
+      note,
     });
-  };
+    Alert.alert('Saved!', `${txType} of ₵${amount} recorded.`, [
+      { text: 'OK', onPress: () => router.back() },
+    ]);
+  } catch (e: any) {
+    Alert.alert('Error', e.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const selectedCategory = CATEGORIES.find((c) => c.id === category)!;
 

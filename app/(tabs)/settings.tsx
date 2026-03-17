@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import React, { useState } from "react";
 import {
   Alert,
@@ -84,21 +86,19 @@ function Divider() {
 export default function SettingsScreen() {
   const [aiMoMoEnabled, setAiMoMoEnabled] = useState(true);
 
-  const handleLogout = () => {
-    Alert.alert("Log out", "Are you sure you want to log out of PesakaApp?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: () => {
-          // TODO: clear Firebase Auth session
-          // auth().signOut().then(() => router.replace('/login'))
-          Alert.alert("Logged out");
-        },
+const handleLogout = () => {
+  Alert.alert('Log out', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Log out',
+      style: 'destructive',
+      onPress: async () => {
+        await signOut(auth);
+        router.replace('/(auth)/phone');
       },
-    ]);
-  };
-
+    },
+  ]);
+};
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
