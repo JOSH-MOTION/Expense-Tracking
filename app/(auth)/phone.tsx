@@ -21,9 +21,8 @@ export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
 
 const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-  clientId:        '755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com', // Web
-  iosClientId:     '755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf.apps.googleusercontent.com', // iOS
-  androidClientId: '755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com', // Web (Android uses web client)
+  clientId: process.env.GOOGLE_CLIENT_ID_WEB,
+  iosClientId: process.env.GOOGLE_CLIENT_ID_IOS,
 });
 
 
