@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "755502841132",
+    "project_id": "pesakaapp",
+    "storage_bucket": "pesakaapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:755502841132:android:28d4cd777feb7099064089",
+        "android_client_info": {
+          "package_name": "com.joshmotions.pesakaapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZ16p38n9uqnM9TtLVMuVOIe7pzCRlpBo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.joshmotions.pesakaapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
