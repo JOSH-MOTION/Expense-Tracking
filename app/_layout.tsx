@@ -20,6 +20,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)"            options={{ headerShown: false }} />
           <Stack.Screen name="security-settings" options={{ headerShown: false, presentation: 'card' }} />
           <Stack.Screen name="add-transaction"   options={{ headerShown: false, presentation: 'transparentModal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="ai-momo-import" options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="(auth)/setup-profile" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
