@@ -10,6 +10,14 @@ web-build/
 expo-env.d.ts
 
 
+client_secret*.json
+GoogleService-Info.plist
+google-services.json
+*.plist
+.env
+.env.*
+
+
 echo "client_secret*.json" >> .gitignore
 echo "GoogleService-Info.plist" >> .gitignore
 echo "google-services.json" >> .gitignore
