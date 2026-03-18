@@ -9,6 +9,12 @@ dist/
 web-build/
 expo-env.d.ts
 
+
+echo "client_secret*.json" >> .gitignore
+echo "GoogleService-Info.plist" >> .gitignore
+echo "google-services.json" >> .gitignore
+
+
 # Native
 .kotlin/
 *.orig.*
