@@ -21,11 +21,10 @@ export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-  clientId: '730256058647-9ojvahtri6ldkbaaretrvjbkotktqjci.apps.googleusercontent.com',   // Web client ID
-  iosClientId: '730256058647-2ug0letp22167m7ris2euepc8kpbb9p3.apps.googleusercontent.com',   // ← add this
-  androidClientId: '730256058647-p4snjq0c4mjnfe4jmjk84mu6tio2akij.apps.googleusercontent.com', // ← add this
-});
-
+    clientId:        '730256058647-9ojvahtri6ldkbaaretrvjbkotktqjci.apps.googleusercontent.com',
+    iosClientId:     '755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf.apps.googleusercontent.com',
+    androidClientId: '755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com',
+  });
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -71,13 +70,11 @@ export default function PhoneScreen() {
           </View>
         </View>
 
-        {/* Title */}
         <Text style={s.title}>Welcome to Pesaka</Text>
         <Text style={s.subtitle}>
           Track your MoMo and cash transactions.{'\n'}Sign in to get started.
         </Text>
 
-        {/* Spacer */}
         <View style={s.spacer} />
 
         {/* Google Button */}
@@ -111,7 +108,6 @@ export default function PhoneScreen() {
 const s = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: '#FFFFFF' },
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 40, paddingBottom: 32 },
-
   logoBox: { alignItems: 'center', marginBottom: 32 },
   logo: {
     width: 72, height: 72, borderRadius: 20,
@@ -120,12 +116,9 @@ const s = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
   logoText: { fontSize: 32, fontWeight: '800', color: '#fff' },
-
   title:    { fontSize: 28, fontWeight: '800', color: TEXT_PRIMARY, textAlign: 'center', letterSpacing: -0.5, marginBottom: 12 },
   subtitle: { fontSize: 15, color: TEXT_SECONDARY, textAlign: 'center', lineHeight: 22 },
-
-  spacer: { flex: 1 },
-
+  spacer:   { flex: 1 },
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 16,
@@ -143,6 +136,5 @@ const s = StyleSheet.create({
   },
   googleG:    { fontSize: 14, fontWeight: '800', color: '#4285F4' },
   googleText: { fontSize: 16, fontWeight: '600', color: TEXT_PRIMARY },
-
   hint: { textAlign: 'center', fontSize: 12, color: TEXT_SECONDARY, lineHeight: 18 },
 });

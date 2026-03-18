@@ -14,11 +14,14 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-const auth = getApps().length === 1
-  ? initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    })
-  : getAuth(app);
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch {
+  auth = getAuth(app);
+}
 
 const db = getFirestore(app);
 

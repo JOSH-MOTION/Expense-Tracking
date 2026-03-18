@@ -62,13 +62,13 @@ function formatTxTime(date: Date) {
   const txDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diff  = today.getTime() - txDay.getTime();
   const time  = date.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' });
-  if (diff === 0)         return `Today, ${time}`;
-  if (diff === 86400000)  return `Yesterday, ${time}`;
+  if (diff === 0)        return `Today, ${time}`;
+  if (diff === 86400000) return `Yesterday, ${time}`;
   return date.toLocaleDateString('en-GH', { day: 'numeric', month: 'short' });
 }
 
 export default function HomeScreen() {
-const { profile, user } = useAuth();
+  const { profile, user } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [summary,      setSummary]      = useState({ income: 0, expense: 0, balance: 0 });
   const [loading,      setLoading]      = useState(true);
@@ -87,14 +87,13 @@ const { profile, user } = useAuth();
     }
   }, []);
 
-  // ← useEffect is INSIDE the component
- useEffect(() => {
-  if (user) {
-    loadData();
-  } else {
-    setLoading(false);
-  }
-}, [user, loadData]);
+  useEffect(() => {
+    if (user) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, loadData]);
 
   const displayName = profile?.displayName || profile?.phone || 'there';
   const firstName   = displayName.split(' ')[0];
@@ -164,6 +163,7 @@ const { profile, user } = useAuth();
           {/* ── AI Import Banner ── */}
           <TouchableOpacity
             style={styles.importBanner}
+            onPress={() => router.push('/ai-momo-import')}
             activeOpacity={0.85}
           >
             <View style={styles.importIconWrapper}>
