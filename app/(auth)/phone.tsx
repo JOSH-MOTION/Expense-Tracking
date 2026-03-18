@@ -20,11 +20,12 @@ const TEXT_SECONDARY = '#6B7280';
 export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId:        '730256058647-9ojvahtri6ldkbaaretrvjbkotktqjci.apps.googleusercontent.com',
-    iosClientId:     '755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf.apps.googleusercontent.com',
-    androidClientId: '755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com',
-  });
+const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+  clientId:        '755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com', // Web
+  iosClientId:     '755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf.apps.googleusercontent.com', // iOS
+  androidClientId: '755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com', // Web (Android uses web client)
+});
+
 
   useEffect(() => {
     if (response?.type === 'success') {
