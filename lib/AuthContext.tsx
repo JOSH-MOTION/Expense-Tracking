@@ -1,17 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, {
+import {
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import {
   createContext,
   ReactNode,
   useContext,
   useEffect,
   useState,
 } from "react";
-import { getUserProfile } from "./db";
+import { createUserIfNew, getUserProfile } from "./db";
+import { auth } from "./firebase";
 
 type User = {
   email: string;
   displayName?: string;
   photoURL?: string;
+  uid: string;
 };
 
 type Profile = {
@@ -26,7 +34,11 @@ type AuthContextType = {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   signIn: (user: User) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<boolean>;
+  registerWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => void;
+  isFirstTimeUser: () => Promise<boolean>;
+  markUserAsReturning: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -35,7 +47,11 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   refreshProfile: async () => {},
   signIn: async () => {},
+  signInWithEmail: async () => false,
+  registerWithEmail: async () => {},
   signOut: () => {},
+  isFirstTimeUser: async () => true,
+  markUserAsReturning: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,67 +60,104 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already signed in (from AsyncStorage)
-    const checkAuthState = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem("user");
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          // Load user profile
-          getUserProfile()
-            .then((data) => {
-              setProfile(data as Profile);
-            })
-            .catch(() => {
-              setProfile(null);
-            });
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          displayName: firebaseUser.displayName || "",
+          photoURL: firebaseUser.photoURL || "",
+        };
+        setUser(userData);
+        await AsyncStorage.setItem("userId", firebaseUser.uid);
+        try {
+          const data = await getUserProfile();
+          setProfile(data as Profile);
+        } catch {
+          setProfile(null);
         }
-      } catch (error) {
-        console.error("Error checking auth state:", error);
+      } else {
+        setUser(null);
+        setProfile(null);
       }
       setLoading(false);
-    };
-
-    checkAuthState();
+    });
+    return unsub;
   }, []);
 
   const refreshProfile = async () => {
-    if (user) {
-      try {
-        const data = await getUserProfile();
-        setProfile(data as Profile);
-      } catch (error) {
-        console.error("Failed to refresh profile:", error);
-        setProfile(null);
-      }
+    try {
+      const data = await getUserProfile();
+      setProfile(data as Profile);
+    } catch {
+      setProfile(null);
     }
   };
 
   const signIn = async (userData: User) => {
     setUser(userData);
-    await AsyncStorage.setItem("user", JSON.stringify(userData));
-
-    // Create or update user profile
+    await AsyncStorage.setItem("userId", userData.uid);
     try {
       const data = await getUserProfile();
       setProfile(data as Profile);
-    } catch (error) {
-      console.error("Failed to load/create profile:", error);
+    } catch {
       setProfile(null);
     }
   };
 
-  const signOut = () => {
+  // Returns true if profile is incomplete (new user needs setup)
+  const signInWithEmail = async (
+    email: string,
+    password: string,
+  ): Promise<boolean> => {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    await AsyncStorage.setItem("userId", cred.user.uid);
+    const data = (await getUserProfile()) as Profile | null;
+    setProfile(data);
+    const isNewUser =
+      !data?.displayName ||
+      data.displayName === "" ||
+      data.displayName === "User";
+    return isNewUser;
+  };
+
+  const registerWithEmail = async (email: string, password: string) => {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await AsyncStorage.setItem("userId", cred.user.uid);
+    await createUserIfNew(email);
+  };
+
+  const signOut = async () => {
+    await firebaseSignOut(auth);
     setUser(null);
     setProfile(null);
-    AsyncStorage.removeItem("user");
-    // TODO: Clear Google OAuth session if needed
+    await AsyncStorage.removeItem("userId");
+    await AsyncStorage.removeItem("user");
+  };
+
+  const isFirstTimeUser = async (): Promise<boolean> => {
+    const hasSeenOnboarding = await AsyncStorage.getItem("hasSeenOnboarding");
+    return hasSeenOnboarding === null;
+  };
+
+  const markUserAsReturning = async () => {
+    await AsyncStorage.setItem("hasSeenOnboarding", "true");
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, refreshProfile, signIn, signOut }}
+      value={{
+        user,
+        profile,
+        loading,
+        refreshProfile,
+        signIn,
+        signInWithEmail,
+        registerWithEmail,
+        signOut,
+        isFirstTimeUser,
+        markUserAsReturning,
+      }}
     >
       {children}
     </AuthContext.Provider>

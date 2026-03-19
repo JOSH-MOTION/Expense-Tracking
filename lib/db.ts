@@ -26,19 +26,27 @@ export const userDocRef = async () => {
   return doc(db, "users", userId);
 };
 
+export async function updateUserAvatar(url: string) {
+  await updateDoc(await userDocRef(), { avatarUrl: url });
+}
+
 export const txColRef = async () => {
   const userId = await uid();
   return collection(db, "users", userId, "transactions");
 };
 
-export async function createUserIfNew(email: string) {
+export async function createUserIfNew(
+  email: string,
+  displayName?: string,
+  avatarUrl?: string,
+) {
   const ref = await userDocRef();
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     await setDoc(ref, {
       email,
-      displayName: "",
-      avatarUrl: "",
+      displayName: displayName || "",
+      avatarUrl: avatarUrl || "",
       createdAt: serverTimestamp(),
     });
     // Store user ID in AsyncStorage for future reference
