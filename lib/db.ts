@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuth } from "firebase/auth";
 import {
   addDoc,
   collection,
@@ -16,9 +17,14 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-export const uid = async () => {
-  const userId = await AsyncStorage.getItem("userId");
-  return userId || "temp-user-id";
+// Always get UID from Firebase Auth first, fallback to AsyncStorage
+export const uid = async (): Promise<string> => {
+  const auth = getAuth();
+  if (auth.currentUser) {
+    return auth.currentUser.uid;
+  }
+  const stored = await AsyncStorage.getItem("userId");
+  return stored || "temp-user-id";
 };
 
 export const userDocRef = async () => {
@@ -26,21 +32,17 @@ export const userDocRef = async () => {
   return doc(db, "users", userId);
 };
 
-export async function updateUserAvatar(url: string) {
-  await updateDoc(await userDocRef(), { avatarUrl: url });
-}
-
 export const txColRef = async () => {
   const userId = await uid();
   return collection(db, "users", userId, "transactions");
 };
 
-export async function createUserIfNew(
-  email: string,
-  displayName?: string,
-  avatarUrl?: string,
-) {
-  const ref = await userDocRef();
+export async function createUserIfNew(email: string, displayName?: string, avatarUrl?: string) {
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error("No authenticated user");
+
+  const ref = doc(db, "users", userId);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     await setDoc(ref, {
@@ -49,9 +51,8 @@ export async function createUserIfNew(
       avatarUrl: avatarUrl || "",
       createdAt: serverTimestamp(),
     });
-    // Store user ID in AsyncStorage for future reference
-    await AsyncStorage.setItem("userId", ref.id);
   }
+  await AsyncStorage.setItem("userId", userId);
 }
 
 export async function getUserProfile() {
@@ -61,6 +62,10 @@ export async function getUserProfile() {
 
 export async function updateDisplayName(name: string) {
   await updateDoc(await userDocRef(), { displayName: name });
+}
+
+export async function updateUserAvatar(url: string) {
+  await updateDoc(await userDocRef(), { avatarUrl: url });
 }
 
 export async function saveTransaction(data: {
@@ -111,10 +116,7 @@ export async function getMonthlyTransactions(year: number, month: number) {
 }
 
 export function calcSummary(transactions: any[]) {
-  let income = 0,
-    expense = 0,
-    momoVol = 0,
-    cashVol = 0;
+  let income = 0, expense = 0, momoVol = 0, cashVol = 0;
   transactions.forEach((tx) => {
     if (tx.type === "income") income += tx.amount;
     if (tx.type === "expense") expense += tx.amount;
