@@ -24,14 +24,18 @@ const TEXT_SECONDARY = "#6B7280";
 export default function PhoneScreen() {
   const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
+
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId:
-      "755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com",
-    iosClientId:
-      "755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf.apps.googleusercontent.com",
-    androidClientId:
-      "755502841132-ipah42e57vbq2stf4q20g1ft4vdv9d4h.apps.googleusercontent.com",
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      handleGoogleResponse(response);
+    }
+  }, [response, handleGoogleResponse]);
 
   const handleGoogleResponse = useCallback(
     async (resp: any) => {
@@ -61,25 +65,10 @@ export default function PhoneScreen() {
     [signIn],
   );
 
-  useEffect(() => {
-    if (response?.type === "success") {
-      handleGoogleResponse(response);
-    }
-  }, [response, handleGoogleResponse]);
-
-  const handleGoogleSignIn = async () => {
-    if (!request) {
-      Alert.alert("Error", "Google Sign-In is not ready");
-      return;
-    }
-    await promptAsync();
-  };
-
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={s.content}>
-        {/* Logo */}
         <View style={s.logoBox}>
           <View style={s.logo}>
             <Text style={s.logoText}>P</Text>
@@ -93,11 +82,10 @@ export default function PhoneScreen() {
 
         <View style={s.spacer} />
 
-        {/* Google Button */}
         <TouchableOpacity
-          style={[s.googleBtn, loading && s.btnDisabled]}
-          onPress={handleGoogleSignIn}
-          disabled={loading}
+          style={[s.googleBtn, (!request || loading) && s.btnDisabled]}
+          onPress={() => promptAsync({ useProxy: true })}
+          disabled={!request || loading}
           activeOpacity={0.85}
         >
           {loading ? (

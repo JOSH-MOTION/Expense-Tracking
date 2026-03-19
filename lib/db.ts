@@ -1,25 +1,22 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    addDoc,
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    limit,
-    orderBy,
-    query,
-    serverTimestamp,
-    setDoc,
-    Timestamp,
-    updateDoc,
-    where,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// TODO: Replace with actual user ID from Google OAuth
 export const uid = async () => {
-  // For now, return a placeholder or get from Google OAuth response
-  // You'll need to store user ID after Google sign-in
   const userId = await AsyncStorage.getItem("userId");
   return userId || "temp-user-id";
 };
@@ -34,34 +31,30 @@ export const txColRef = async () => {
   return collection(db, "users", userId, "transactions");
 };
 
-// ── Create user on first login ──────────────────────────
-export async function createUserIfNew(phone: string) {
+export async function createUserIfNew(email: string) {
   const ref = await userDocRef();
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     await setDoc(ref, {
-      phone,
+      email,
       displayName: "",
       avatarUrl: "",
       createdAt: serverTimestamp(),
     });
+    // Store user ID in AsyncStorage for future reference
+    await AsyncStorage.setItem("userId", ref.id);
   }
 }
 
-// ── Get user profile ────────────────────────────────────
 export async function getUserProfile() {
-  const ref = await userDocRef();
-  const snap = await getDoc(ref);
+  const snap = await getDoc(await userDocRef());
   return snap.exists() ? snap.data() : null;
 }
 
-// ── Update display name ─────────────────────────────────
 export async function updateDisplayName(name: string) {
-  const ref = await userDocRef();
-  await updateDoc(ref, { displayName: name });
+  await updateDoc(await userDocRef(), { displayName: name });
 }
 
-// ── Save a transaction ──────────────────────────────────
 export async function saveTransaction(data: {
   name: string;
   amount: number;
@@ -71,56 +64,54 @@ export async function saveTransaction(data: {
   category: string;
   note?: string;
 }) {
-  const colRef = await txColRef();
-  return addDoc(colRef, {
+  return addDoc(await txColRef(), {
     ...data,
     createdAt: serverTimestamp(),
     source: "manual",
   });
 }
 
-// ── Get recent transactions ─────────────────────────────
 export async function getRecentTransactions(limitCount = 10) {
-  const colRef = await txColRef();
-  const q = query(colRef, orderBy("createdAt", "desc"), limit(limitCount));
+  const q = query(
+    await txColRef(),
+    orderBy("createdAt", "desc"),
+    limit(limitCount),
+  );
   const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as any),
+    createdAt: d.data().createdAt?.toDate?.() ?? new Date(),
+  }));
 }
 
-// ── Get all transactions for a month ───────────────────
 export async function getMonthlyTransactions(year: number, month: number) {
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 0, 23, 59, 59);
-  const colRef = await txColRef();
   const q = query(
-    colRef,
+    await txColRef(),
     where("createdAt", ">=", Timestamp.fromDate(start)),
     where("createdAt", "<=", Timestamp.fromDate(end)),
     orderBy("createdAt", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as any),
+    createdAt: d.data().createdAt?.toDate?.() ?? new Date(),
+  }));
 }
 
-// ── Calculate balance summary ───────────────────────────
 export function calcSummary(transactions: any[]) {
-  let income = 0;
-  let expense = 0;
-  let momoVol = 0;
-  let cashVol = 0;
-
+  let income = 0,
+    expense = 0,
+    momoVol = 0,
+    cashVol = 0;
   transactions.forEach((tx) => {
     if (tx.type === "income") income += tx.amount;
     if (tx.type === "expense") expense += tx.amount;
     if (tx.paymentType === "MoMo") momoVol += tx.amount;
     if (tx.paymentType === "Cash") cashVol += tx.amount;
   });
-
-  return {
-    income,
-    expense,
-    balance: income - expense,
-    momoVol,
-    cashVol,
-  };
+  return { income, expense, balance: income - expense, momoVol, cashVol };
 }

@@ -1,23 +1,23 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
-    createContext,
-    ReactNode,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 import { getUserProfile } from "./db";
-
-type Profile = {
-  email: string;
-  displayName: string;
-  avatarUrl: string;
-};
 
 type User = {
   email: string;
   displayName?: string;
   photoURL?: string;
+};
+
+type Profile = {
+  email: string;
+  displayName: string;
+  avatarUrl: string;
 };
 
 type AuthContextType = {
@@ -112,4 +112,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
-export default AuthProvider;
