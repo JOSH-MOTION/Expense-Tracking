@@ -25,7 +25,7 @@ type User = {
 type Profile = {
   email: string;
   displayName: string;
-  avatarUrl: string;
+  avatarUrl?: string;
 };
 
 type AuthContextType = {
