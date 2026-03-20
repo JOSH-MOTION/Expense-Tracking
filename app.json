@@ -18,6 +18,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#1D9E75"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#1D9E75",
+          "defaultChannel": "default",
+          "sounds": []
+        }
       ]
     ],
     "ios": {
@@ -26,11 +35,6 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf"
-            ]
-          },
           {
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.755502841132-th256nqii3iopvqe0fq582f8ckk3mtlf"
@@ -49,8 +53,8 @@
       "permissions": [
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
-        "android.permission.READ_SMS",
-        "android.permission.RECEIVE_SMS"
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
