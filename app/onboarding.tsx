@@ -46,32 +46,19 @@ function WalletIllustration() {
           {/* Balance card */}
           <View style={il.balanceCard}>
             <Text style={il.balanceLabel}>Total Balance</Text>
-            <Text style={il.balanceAmt}>₵ 4,250.00</Text>
+            <Text style={il.balanceAmt}>₵ 0.00</Text>
             <View style={il.balanceRow}>
               <View>
                 <Text style={il.statLbl}>Income</Text>
-                <Text style={il.statAmt}>₵ 5,800</Text>
+                <Text style={il.statAmt}>₵ 0.00</Text>
               </View>
               <View>
                 <Text style={il.statLbl}>Expense</Text>
-                <Text style={il.statAmt}>₵ 1,550</Text>
+                <Text style={il.statAmt}>₵ 0.00</Text>
               </View>
             </View>
           </View>
           {/* Mini tx rows */}
-          {["Kofi's Cafe  -₵45", "Salary  +₵5,800", "Uber Ride  -₵65"].map(
-            (t, i) => (
-              <View key={i} style={il.txRow}>
-                <View
-                  style={[
-                    il.txDot,
-                    { backgroundColor: i === 1 ? PRIMARY : "#F5A623" },
-                  ]}
-                />
-                <Text style={il.txText}>{t}</Text>
-              </View>
-            ),
-          )}
         </View>
       </View>
       {/* Floating badge */}
@@ -91,8 +78,9 @@ function AiIllustration() {
           <View style={il.smsBubble}>
             <Text style={il.smsTitle}>MTN MoMo</Text>
             <Text style={il.smsBody}>
-              You have sent GHS 50.00 to{"\n"}John Doe. TxID: 123456789.{"\n"}
-              Balance: GHS 200.00
+              You have sent GHS 10.00 to{"\n"}Recipient Name. TxID: 123456789.
+              {"\n"}
+              Balance: GHS 90.00
             </Text>
           </View>
           {/* Arrow down */}
@@ -101,7 +89,7 @@ function AiIllustration() {
           <View style={il.parsedCard}>
             <Text style={il.parsedLabel}>AI parsed</Text>
             <Text style={il.parsedRow}>
-              Amount <Text style={il.parsedVal}>₵ 50.00</Text>
+              Amount <Text style={il.parsedVal}>₵ 10.00</Text>
             </Text>
             <Text style={il.parsedRow}>
               Type <Text style={il.parsedVal}>Send</Text>

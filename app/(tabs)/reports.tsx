@@ -1,508 +1,298 @@
-import React, { useState } from 'react';
+import { useAuth } from "@/lib/AuthContext";
+import { getMonthlyTransactions, calcSummary } from "@/lib/db";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, G, Rect, Text as SvgText } from 'react-native-svg';
+  ActivityIndicator, RefreshControl, ScrollView,
+  StatusBar, StyleSheet, Text, TouchableOpacity, View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle, G, Rect, Text as SvgText } from "react-native-svg";
 
-const PRIMARY   = '#1D9E75';
-const BG        = '#F0F4F3';
-const CARD_BG   = '#FFFFFF';
-const TEXT_PRIMARY   = '#1A1A1A';
-const TEXT_SECONDARY = '#6B7280';
+const PRIMARY        = "#1D9E75";
+const BG             = "#F0F4F3";
+const CARD_BG        = "#FFFFFF";
+const TEXT_PRIMARY   = "#1A1A1A";
+const TEXT_SECONDARY = "#6B7280";
 
-// ── Data ────────────────────────────────────────────────
-const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
-];
+const MONTHS = ["January","February","March","April","May","June",
+  "July","August","September","October","November","December"];
 
-const DONUT_DATA = [
-  { label: 'Transfers',    pct: 45, color: PRIMARY   },
-  { label: 'Food & Drinks',pct: 30, color: '#F5A623' },
-  { label: 'Utilities',    pct: 15, color: '#E24B4A' },
-  { label: 'Other',        pct: 10, color: '#B4B2A9' },
-];
+// Category colors matching db category IDs
+const CAT_COLORS: Record<string, string> = {
+  food:      "#F5A623", transport: "#E24B4A", shopping: "#7C3AED",
+  bills:     "#F59E0B", airtime:   PRIMARY,   health:   "#EC4899",
+  salary:    "#10B981", gift:      "#8B5CF6",  other:   "#B4B2A9",
+};
+const CAT_LABELS: Record<string, string> = {
+  food: "Food & Dining", transport: "Transport", shopping: "Shopping",
+  bills: "Bills", airtime: "Airtime/Data", health: "Health",
+  salary: "Salary", gift: "Gift", other: "Other",
+};
 
-const WEEKLY_DATA = [
-  { week: 'W1', income: 38, expense: 18 },
-  { week: 'W2', income: 72, expense: 45 },
-  { week: 'W3', income: 55, expense: 68 },
-  { week: 'W4', income: 90, expense: 30 },
-];
-
-// ── Donut Chart ─────────────────────────────────────────
-function DonutChart({ data, total }: { data: typeof DONUT_DATA; total: string }) {
-  const SIZE   = 200;
-  const CX     = SIZE / 2;
-  const CY     = SIZE / 2;
-  const R      = 78;
-  const STROKE = 28;
+// ── Donut ─────────────────────────────────────────────────
+function DonutChart({ slices, total }: { slices: { label: string; pct: number; color: string }[]; total: string }) {
+  const SIZE = 200, CX = 100, CY = 100, R = 78, STROKE = 28;
   const CIRCUM = 2 * Math.PI * R;
-
-  let offset = 0;
-  // start from top (-90deg = -CIRCUM/4 offset)
-  const segments = data.map((d) => {
-    const dash   = (d.pct / 100) * CIRCUM;
-    const gap    = CIRCUM - dash;
-    const rotate = offset * 3.6 - 90; // pct → degrees
-    offset += d.pct;
-    return { ...d, dash, gap, rotate };
-  });
-
+  let cumDash = 0;
   return (
-    <View style={{ alignItems: 'center', marginVertical: 8 }}>
+    <View style={{ alignItems: "center", marginVertical: 8 }}>
       <Svg width={SIZE} height={SIZE}>
         <G rotation={-90} origin={`${CX},${CY}`}>
-          {segments.map((seg, i) => (
-            <Circle
-              key={i}
-              cx={CX}
-              cy={CY}
-              r={R}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={STROKE}
-              strokeDasharray={`${seg.dash} ${seg.gap}`}
-              strokeDashoffset={
-                -((segments
-                  .slice(0, i)
-                  .reduce((acc, s) => acc + s.dash, 0)))
-              }
-              strokeLinecap="butt"
-            />
-          ))}
+          {slices.map((s, i) => {
+            const dash = (s.pct / 100) * CIRCUM;
+            const seg = (
+              <Circle key={i} cx={CX} cy={CY} r={R} fill="none"
+                stroke={s.color} strokeWidth={STROKE}
+                strokeDasharray={`${dash} ${CIRCUM - dash}`}
+                strokeDashoffset={-cumDash} strokeLinecap="butt" />
+            );
+            cumDash += dash;
+            return seg;
+          })}
+          {slices.length === 0 && (
+            <Circle cx={CX} cy={CY} r={R} fill="none" stroke="#E5E7EB" strokeWidth={STROKE} />
+          )}
         </G>
-        {/* Centre label */}
-        <SvgText
-          x={CX} y={CY - 10}
-          textAnchor="middle"
-          fontSize="13"
-          fill={TEXT_SECONDARY}
-        >
-          Total
-        </SvgText>
-        <SvgText
-          x={CX} y={CY + 14}
-          textAnchor="middle"
-          fontSize="22"
-          fontWeight="800"
-          fill={TEXT_PRIMARY}
-        >
-          {total}
-        </SvgText>
+        <SvgText x={CX} y={CY - 10} textAnchor="middle" fontSize="13" fill={TEXT_SECONDARY}>Total</SvgText>
+        <SvgText x={CX} y={CY + 14} textAnchor="middle" fontSize="20" fontWeight="800" fill={TEXT_PRIMARY}>{total}</SvgText>
       </Svg>
     </View>
   );
 }
 
-// ── Bar Chart ───────────────────────────────────────────
-function BarChart({ data }: { data: typeof WEEKLY_DATA }) {
-  const W          = 280;
-  const H          = 120;
-  const BAR_W      = 18;
-  const GAP        = 4;
-  const GROUP_W    = BAR_W * 2 + GAP + 20;
-  const maxVal     = Math.max(...data.flatMap((d) => [d.income, d.expense]));
-
+// ── Bar Chart ─────────────────────────────────────────────
+function BarChart({ weeks }: { weeks: { label: string; income: number; expense: number }[] }) {
+  const W = 300, H = 120, BAR_W = 16, GAP = 4;
+  const maxVal = Math.max(...weeks.flatMap(d => [d.income, d.expense]), 1);
+  const groupW = BAR_W * 2 + GAP + (W / weeks.length - BAR_W * 2 - GAP);
   return (
-    <View style={{ alignItems: 'center', marginTop: 8 }}>
+    <View style={{ alignItems: "center", marginTop: 8 }}>
       <Svg width={W} height={H + 24}>
-        {data.map((d, i) => {
-          const groupX = i * GROUP_W + 20;
-          const incH   = (d.income  / maxVal) * H;
-          const expH   = (d.expense / maxVal) * H;
-          const incY   = H - incH;
-          const expY   = H - expH;
-
+        {weeks.map((d, i) => {
+          const gx   = i * (W / weeks.length) + (W / weeks.length - BAR_W * 2 - GAP) / 2;
+          const incH = (d.income  / maxVal) * H;
+          const expH = (d.expense / maxVal) * H;
           return (
             <G key={i}>
-              {/* Income bar */}
-              <Rect
-                x={groupX}
-                y={incY}
-                width={BAR_W}
-                height={incH}
-                rx={5}
-                fill={PRIMARY}
-                opacity={0.9}
-              />
-              {/* Expense bar */}
-              <Rect
-                x={groupX + BAR_W + GAP}
-                y={expY}
-                width={BAR_W}
-                height={expH}
-                rx={5}
-                fill="#E24B4A"
-                opacity={0.85}
-              />
-              {/* Week label */}
-              <SvgText
-                x={groupX + BAR_W}
-                y={H + 18}
-                textAnchor="middle"
-                fontSize="12"
-                fill={TEXT_SECONDARY}
-              >
-                {d.week}
-              </SvgText>
+              <Rect x={gx}              y={H - incH} width={BAR_W} height={incH || 2} rx={4} fill={PRIMARY}    opacity={0.9} />
+              <Rect x={gx + BAR_W + GAP} y={H - expH} width={BAR_W} height={expH || 2} rx={4} fill="#E24B4A" opacity={0.85} />
+              <SvgText x={gx + BAR_W} y={H + 16} textAnchor="middle" fontSize="11" fill={TEXT_SECONDARY}>{d.label}</SvgText>
             </G>
           );
         })}
       </Svg>
-
-      {/* Legend */}
-      <View style={styles.barLegend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: PRIMARY }]} />
-          <Text style={styles.legendText}>Income</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#E24B4A' }]} />
-          <Text style={styles.legendText}>Expense</Text>
-        </View>
+      <View style={{ flexDirection: "row", gap: 20, marginTop: 4 }}>
+        {[{ color: PRIMARY, label: "Income" }, { color: "#E24B4A", label: "Expense" }].map(l => (
+          <View key={l.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: l.color }} />
+            <Text style={{ fontSize: 12, color: TEXT_SECONDARY }}>{l.label}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
 }
 
-// ── Main Screen ─────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────
+function buildDonutSlices(txs: any[]) {
+  const totals: Record<string, number> = {};
+  txs.filter(t => t.type === "expense").forEach(t => {
+    totals[t.category] = (totals[t.category] || 0) + t.amount;
+  });
+  const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+  if (grandTotal === 0) return [];
+  return Object.entries(totals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([cat, amt]) => ({
+      label: CAT_LABELS[cat] || cat,
+      pct:   Math.round((amt / grandTotal) * 100),
+      color: CAT_COLORS[cat] || "#B4B2A9",
+      amt,
+    }));
+}
+
+function buildWeeklyBars(txs: any[], year: number, month: number) {
+  // Split month into 4 roughly-equal week buckets
+  const weeks = [
+    { label: "W1", income: 0, expense: 0 },
+    { label: "W2", income: 0, expense: 0 },
+    { label: "W3", income: 0, expense: 0 },
+    { label: "W4", income: 0, expense: 0 },
+  ];
+  txs.forEach(tx => {
+    const day = new Date(tx.createdAt).getDate();
+    const wi  = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+    if (tx.type === "income")  weeks[wi].income  += tx.amount;
+    if (tx.type === "expense") weeks[wi].expense += tx.amount;
+  });
+  return weeks;
+}
+
+// ── Main ──────────────────────────────────────────────────
 export default function ReportsScreen() {
+  const { user } = useAuth();
   const now = new Date();
-  const [monthIndex, setMonthIndex] = useState(now.getMonth());
-  const [year, setYear]             = useState(now.getFullYear());
+  const [month,      setMonth]      = useState(now.getMonth());
+  const [year,       setYear]       = useState(now.getFullYear());
+  const [txs,        setTxs]        = useState<any[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (y: number, m: number) => {
+    try {
+      const data = await getMonthlyTransactions(y, m);
+      setTxs(data);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); setRefreshing(false); }
+  }, []);
+
+  useEffect(() => { if (user) load(year, month); else setLoading(false); }, [user, year, month, load]);
+
+  const summary = calcSummary(txs);
+  const slices  = buildDonutSlices(txs);
+  const weeks   = buildWeeklyBars(txs, year, month);
 
   const prevMonth = () => {
-    if (monthIndex === 0) { setMonthIndex(11); setYear((y) => y - 1); }
-    else setMonthIndex((m) => m - 1);
+    if (month === 0) { setMonth(11); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
   };
   const nextMonth = () => {
-    if (monthIndex === 11) { setMonthIndex(0); setYear((y) => y + 1); }
-    else setMonthIndex((m) => m + 1);
+    if (month === 11) { setMonth(0); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
   };
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+  const momoTotal = txs.filter(t => t.paymentType === "MoMo").reduce((s, t) => s + t.amount, 0);
+  const cashTotal = txs.filter(t => t.paymentType === "Cash").reduce((s, t) => s + t.amount, 0);
+  const grandVol  = momoTotal + cashTotal || 1;
+
+  const fmt = (n: number) => "₵ " + n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  if (loading) return (
+    <SafeAreaView style={s.safe} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <View style={s.loader}><ActivityIndicator color={PRIMARY} size="large" /></View>
+    </SafeAreaView>
+  );
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Reports</Text>
-        <TouchableOpacity style={styles.exportBtn} activeOpacity={0.75}>
-          {/* download icon */}
-          <Svg width={18} height={18} viewBox="0 0 24 24">
-            <G stroke={TEXT_PRIMARY} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none">
-              <Rect x={3} y={17} width={18} height={2} rx={1} fill={TEXT_PRIMARY} stroke="none"/>
-              <G>
-                <Rect x={11} y={3} width={2} height={10} rx={1} fill={TEXT_PRIMARY} stroke="none"/>
-                <G transform="translate(12,14) rotate(0)">
-                  <Rect x={-4} y={-2} width={4} height={2} rx={1} fill={TEXT_PRIMARY} stroke="none" transform="rotate(-45)"/>
-                  <Rect x={0} y={-2} width={4} height={2} rx={1} fill={TEXT_PRIMARY} stroke="none" transform="rotate(45)"/>
-                </G>
-              </G>
-            </G>
-          </Svg>
-        </TouchableOpacity>
-      </View>
+  return (
+    <SafeAreaView style={s.safe} edges={["top"]}>
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <View style={s.header}><Text style={s.headerTitle}>Reports</Text></View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        {/* ── Month Selector ── */}
-        <View style={styles.monthSelector}>
-          <TouchableOpacity onPress={prevMonth} style={styles.monthArrow} activeOpacity={0.7}>
-            <Text style={styles.monthArrowText}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.monthLabel}>{MONTHS[monthIndex]} {year}</Text>
-          <TouchableOpacity onPress={nextMonth} style={styles.monthArrow} activeOpacity={0.7}>
-            <Text style={styles.monthArrowText}>›</Text>
-          </TouchableOpacity>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(year, month); }} tintColor={PRIMARY} />}>
+
+        {/* Month selector */}
+        <View style={s.monthRow}>
+          <TouchableOpacity onPress={prevMonth} style={s.monthArrow}><Text style={s.monthArrowTxt}>‹</Text></TouchableOpacity>
+          <Text style={s.monthLabel}>{MONTHS[month]} {year}</Text>
+          <TouchableOpacity onPress={nextMonth} style={s.monthArrow}><Text style={s.monthArrowTxt}>›</Text></TouchableOpacity>
         </View>
 
-        {/* ── MoMo / Cash Cards ── */}
-        <View style={styles.summaryRow}>
-          {/* MoMo */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryCardHeader}>
-              <View style={[styles.summaryIcon, { backgroundColor: '#FFF4E0' }]}>
-                <Text style={{ fontSize: 16 }}>📱</Text>
+        {/* Income / Expense summary */}
+        <View style={s.summRow}>
+          {[
+            { label: "Income",  val: summary.income,  dot: "#9FE1CB", color: PRIMARY  },
+            { label: "Expense", val: summary.expense, dot: "#F09595", color: "#E24B4A" },
+          ].map(r => (
+            <View key={r.label} style={s.summCard}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <View style={[s.summDot, { backgroundColor: r.dot }]} />
+                <Text style={s.summLabel}>{r.label}</Text>
               </View>
-              <Text style={styles.summaryCardTitle}>MoMo</Text>
+              <Text style={[s.summAmt, { color: r.color }]}>{fmt(r.val)}</Text>
             </View>
-            <Text style={styles.summaryAmount}>₵ 4,250</Text>
-            <View style={styles.summaryFooter}>
-              <Text style={styles.summaryPctUp}>↗ 65% of vol</Text>
-            </View>
-          </View>
-
-          {/* Cash */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryCardHeader}>
-              <View style={[styles.summaryIcon, { backgroundColor: '#E1F5EE' }]}>
-                <Text style={{ fontSize: 16 }}>💵</Text>
-              </View>
-              <Text style={styles.summaryCardTitle}>Cash</Text>
-            </View>
-            <Text style={styles.summaryAmount}>₵ 2,250</Text>
-            <View style={styles.summaryFooter}>
-              <Text style={styles.summaryPctDown}>↘ 35% of vol</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
-        {/* ── Expense Categories ── */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
+        {/* MoMo vs Cash */}
+        <View style={s.summRow}>
+          {[
+            { label: "MoMo", val: momoTotal, pct: Math.round((momoTotal / grandVol) * 100), icon: "📱", bg: "#FFF4E0" },
+            { label: "Cash", val: cashTotal, pct: Math.round((cashTotal / grandVol) * 100), icon: "💵", bg: "#E1F5EE" },
+          ].map(r => (
+            <View key={r.label} style={s.summCard}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <View style={[s.summIcon, { backgroundColor: r.bg }]}><Text style={{ fontSize: 14 }}>{r.icon}</Text></View>
+                <Text style={s.summLabel}>{r.label}</Text>
+              </View>
+              <Text style={s.summAmt}>{fmt(r.val)}</Text>
+              <Text style={{ fontSize: 11, color: TEXT_SECONDARY, marginTop: 4 }}>{r.pct}% of volume</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Expense categories donut */}
+        <View style={s.card}>
+          <View style={s.cardHdr}>
             <View>
-              <Text style={styles.cardTitle}>Expense Categories</Text>
-              <Text style={styles.cardSub}>Where your money goes</Text>
+              <Text style={s.cardTitle}>Expense Categories</Text>
+              <Text style={s.cardSub}>Where your money goes</Text>
             </View>
-            <TouchableOpacity>
-              <Text style={styles.moreBtn}>•••</Text>
-            </TouchableOpacity>
           </View>
-
-          <DonutChart data={DONUT_DATA} total="₵ 2,250" />
-
-          <View style={styles.legendList}>
-            {DONUT_DATA.map((d) => (
-              <View key={d.label} style={styles.legendRow}>
-                <View style={styles.legendLeft}>
-                  <View style={[styles.legendDotLg, { backgroundColor: d.color }]} />
-                  <Text style={styles.legendLabel}>{d.label}</Text>
-                </View>
-                <Text style={styles.legendPct}>{d.pct}%</Text>
+          {slices.length === 0 ? (
+            <View style={s.noData}><Text style={s.noDataTxt}>No expense data this month</Text></View>
+          ) : (
+            <>
+              <DonutChart slices={slices} total={fmt(summary.expense)} />
+              <View style={{ marginTop: 8, gap: 12 }}>
+                {slices.map(sl => (
+                  <View key={sl.label} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: sl.color }} />
+                      <Text style={{ fontSize: 14, color: TEXT_PRIMARY, fontWeight: "500" }}>{sl.label}</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: TEXT_PRIMARY }}>{sl.pct}%</Text>
+                      <Text style={{ fontSize: 11, color: TEXT_SECONDARY }}>{fmt((sl as any).amt)}</Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          )}
         </View>
 
-        {/* ── Weekly Cashflow ── */}
-        <View style={[styles.card, { marginBottom: 24 }]}>
-          <View style={styles.cardHeader}>
+        {/* Weekly cashflow */}
+        <View style={[s.card, { marginBottom: 24 }]}>
+          <View style={s.cardHdr}>
             <View>
-              <Text style={styles.cardTitle}>Weekly Cashflow</Text>
-              <Text style={styles.cardSub}>Income vs Expense</Text>
+              <Text style={s.cardTitle}>Weekly Cashflow</Text>
+              <Text style={s.cardSub}>Income vs Expense by week</Text>
             </View>
           </View>
-          <BarChart data={WEEKLY_DATA} />
+          {txs.length === 0 ? (
+            <View style={s.noData}><Text style={s.noDataTxt}>No transactions this month</Text></View>
+          ) : (
+            <BarChart weeks={weeks} />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: TEXT_PRIMARY,
-    letterSpacing: -0.5,
-  },
-  exportBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: CARD_BG,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-  },
-
-  content: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-
-  // Month selector
-  monthSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: CARD_BG,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 14,
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-  },
-  monthArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: BG,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthArrowText: {
-    fontSize: 20,
-    color: TEXT_PRIMARY,
-    fontWeight: '400',
-    lineHeight: 24,
-  },
-  monthLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-
-  // Summary cards
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-  },
-  summaryCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  summaryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summaryCardTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: TEXT_SECONDARY,
-  },
-  summaryAmount: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: TEXT_PRIMARY,
-    letterSpacing: -0.5,
-    marginBottom: 6,
-  },
-  summaryFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryPctUp: {
-    fontSize: 12,
-    color: TEXT_SECONDARY,
-  },
-  summaryPctDown: {
-    fontSize: 12,
-    color: '#E24B4A',
-  },
-
-  // Cards
-  card: {
-    backgroundColor: CARD_BG,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-  cardSub: {
-    fontSize: 12,
-    color: TEXT_SECONDARY,
-    marginTop: 2,
-  },
-  moreBtn: {
-    fontSize: 16,
-    color: TEXT_SECONDARY,
-    letterSpacing: 2,
-    paddingTop: 2,
-  },
-
-  // Donut legend
-  legendList: {
-    marginTop: 8,
-    gap: 12,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  legendLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  legendDotLg: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendLabel: {
-    fontSize: 14,
-    color: TEXT_PRIMARY,
-    fontWeight: '500',
-  },
-  legendPct: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-  },
-
-  // Bar legend
-  barLegend: {
-    flexDirection: 'row',
-    gap: 20,
-    marginTop: 8,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 12,
-    color: TEXT_SECONDARY,
-  },
+const s = StyleSheet.create({
+  safe:    { flex: 1, backgroundColor: BG },
+  loader:  { flex: 1, alignItems: "center", justifyContent: "center" },
+  header:  { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  headerTitle: { fontSize: 26, fontWeight: "800", color: TEXT_PRIMARY, letterSpacing: -0.5 },
+  content: { paddingHorizontal: 16, paddingBottom: 16 },
+  monthRow:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: CARD_BG, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 14, borderWidth: 0.5, borderColor: "#E5E7EB" },
+  monthArrow:   { width: 32, height: 32, borderRadius: 16, backgroundColor: BG, alignItems: "center", justifyContent: "center" },
+  monthArrowTxt:{ fontSize: 22, color: TEXT_PRIMARY, lineHeight: 26 },
+  monthLabel:   { fontSize: 16, fontWeight: "700", color: TEXT_PRIMARY },
+  summRow:  { flexDirection: "row", gap: 12, marginBottom: 14 },
+  summCard: { flex: 1, backgroundColor: CARD_BG, borderRadius: 16, padding: 14, borderWidth: 0.5, borderColor: "#E5E7EB" },
+  summDot:  { width: 8, height: 8, borderRadius: 4 },
+  summIcon: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  summLabel:{ fontSize: 13, color: TEXT_SECONDARY, fontWeight: "500" },
+  summAmt:  { fontSize: 18, fontWeight: "800", color: TEXT_PRIMARY, letterSpacing: -0.5 },
+  card:     { backgroundColor: CARD_BG, borderRadius: 20, padding: 18, marginBottom: 14, borderWidth: 0.5, borderColor: "#E5E7EB" },
+  cardHdr:  { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 },
+  cardTitle:{ fontSize: 16, fontWeight: "700", color: TEXT_PRIMARY },
+  cardSub:  { fontSize: 12, color: TEXT_SECONDARY, marginTop: 2 },
+  noData:   { paddingVertical: 32, alignItems: "center" },
+  noDataTxt:{ fontSize: 14, color: TEXT_SECONDARY },
 });
